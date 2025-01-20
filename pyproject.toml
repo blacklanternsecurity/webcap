@@ -10,7 +10,7 @@ readme = "README.md"
 python = ">=3.9,<3.13"
 httpx = "^0.28.1"
 websockets = "^14.1"
-orjson = "^3.10.14"
+orjson = "^3.10.15"
 extractous = "^0.3.0"
 uvloop = "^0.21.0"
 
