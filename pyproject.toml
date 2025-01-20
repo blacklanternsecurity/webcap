@@ -9,7 +9,7 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = ">=3.9,<3.13"
 httpx = "^0.28.1"
-websockets = "^14.1"
+websockets = "^14.2"
 orjson = "^3.10.14"
 extractous = "^0.3.0"
 uvloop = "^0.21.0"
