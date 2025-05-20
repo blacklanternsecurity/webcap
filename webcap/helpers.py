@@ -30,7 +30,12 @@ async def task_pool(fn, all_args, threads=10, global_kwargs=None):
             new_task()
 
         while tasks:
-            done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+            try:
+                done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED, timeout=1.0)
+            except asyncio.TimeoutError:
+                log.debug(f"no tasks completed in the last second")
+                continue
+            log.debug(f"done: {done}, pending: {pending}")
             for task in done:
                 arg = tasks.pop(task)
                 try:
