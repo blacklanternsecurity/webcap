@@ -6,6 +6,7 @@ import orjson
 import shutil
 import asyncio
 import tempfile
+import traceback
 import websockets
 from pathlib import Path
 from contextlib import suppress
@@ -197,7 +198,11 @@ class Browser(WebCapBase):
                 if sessionId:
                     request["sessionId"] = sessionId
                 await self._send_request(request)
-                response = await future
+                try:
+                    response = await asyncio.wait_for(future, timeout=self.timeout)
+                except asyncio.TimeoutError:
+                    self.log.info(f"Request {message_id} timed out (command: {command}({repr_params(params)}))")
+                    break
                 return response
             except DevToolsProtocolError as e:
                 self.pending_requests.pop(message_id, None)
@@ -310,17 +315,21 @@ class Browser(WebCapBase):
         """Background task to handle incoming messages"""
         try:
             while self.websocket and not self._closed:
-                message = await self.websocket.recv()
-                response = orjson.loads(message)
-                # self.log.debug(f"Got message: {response}")
-                await self.handle_event(response)
-
+                try:
+                    message = await self.websocket.recv()
+                    response = orjson.loads(message)
+                    # self.log.debug(f"Got message: {response}")
+                    await self.handle_event(response)
+                except websockets.ConnectionClosed as e:
+                    self.log.debug(f"WebSocket connection closed: {e}")
+                    break
+                except Exception as e:
+                    self.log.error(f"Error processing message: {e}")
+                    self.log.debug(traceback.format_exc())
         except websockets.ConnectionClosed as e:
             self.log.debug(f"WebSocket connection closed: {e}")
         except Exception as e:
             self.log.critical(f"Error in message handler: {e}")
-            import traceback
-
             self.log.critical(traceback.format_exc())
         finally:
             await self.stop()
