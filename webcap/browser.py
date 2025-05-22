@@ -132,10 +132,11 @@ class Browser(WebCapBase):
         except Exception as e:
             self.log.error(f"Error visiting {url}: {e}")
         finally:
-            try:
-                await tab.close()
-            except BaseException as e:
-                log.debug(f"Error closing tab at {url}: {e} - {traceback.format_exc()}")
+            if "tab" in locals():
+                try:
+                    await tab.close()
+                except BaseException as e:
+                    log.debug(f"Error closing tab at {url}: {e} - {traceback.format_exc()}")
 
     async def new_tab(self, url):
         tab = Tab(self)
