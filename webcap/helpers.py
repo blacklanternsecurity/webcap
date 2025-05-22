@@ -49,6 +49,7 @@ async def task_pool(fn, all_args, threads=10, global_kwargs=None):
             log.debug(f"{len(pending):,} tasks pending:")
             for task in pending:
                 arg, time_started = tasks[task]
+                elapsed = elapsed = time.time() - time_started
                 log.debug(f" - {arg} running for {elapsed:.1f} seconds")
 
     except (KeyboardInterrupt, asyncio.CancelledError):
