@@ -5,7 +5,9 @@ import atexit
 import orjson
 import shutil
 import asyncio
+import logging
 import tempfile
+import traceback
 import websockets
 from pathlib import Path
 from contextlib import suppress
@@ -17,6 +19,8 @@ from webcap import defaults
 from webcap.base import WebCapBase
 from webcap.errors import DevToolsProtocolError, WebCapError
 from webcap.helpers import task_pool, repr_params  # , download_wap
+
+log = logging.getLogger("webcap.browser")
 
 
 class Browser(WebCapBase):
@@ -128,8 +132,11 @@ class Browser(WebCapBase):
         except Exception as e:
             self.log.error(f"Error visiting {url}: {e}")
         finally:
-            with suppress(Exception):
-                await tab.close()
+            if "tab" in locals():
+                try:
+                    await tab.close()
+                except BaseException as e:
+                    log.debug(f"Error closing tab at {url}: {e} - {traceback.format_exc()}")
 
     async def new_tab(self, url):
         tab = Tab(self)
@@ -197,7 +204,11 @@ class Browser(WebCapBase):
                 if sessionId:
                     request["sessionId"] = sessionId
                 await self._send_request(request)
-                response = await future
+                try:
+                    response = await asyncio.wait_for(future, timeout=self.timeout)
+                except asyncio.TimeoutError:
+                    self.log.info(f"Request {message_id} timed out (command: {command}({repr_params(params)}))")
+                    break
                 return response
             except DevToolsProtocolError as e:
                 self.pending_requests.pop(message_id, None)
@@ -310,17 +321,21 @@ class Browser(WebCapBase):
         """Background task to handle incoming messages"""
         try:
             while self.websocket and not self._closed:
-                message = await self.websocket.recv()
-                response = orjson.loads(message)
-                # self.log.debug(f"Got message: {response}")
-                await self.handle_event(response)
-
+                try:
+                    message = await self.websocket.recv()
+                    response = orjson.loads(message)
+                    # self.log.debug(f"Got message: {response}")
+                    await self.handle_event(response)
+                except websockets.ConnectionClosed as e:
+                    self.log.debug(f"WebSocket connection closed: {e}")
+                    break
+                except Exception as e:
+                    self.log.error(f"Error processing message: {e}")
+                    self.log.debug(traceback.format_exc())
         except websockets.ConnectionClosed as e:
             self.log.debug(f"WebSocket connection closed: {e}")
         except Exception as e:
             self.log.critical(f"Error in message handler: {e}")
-            import traceback
-
             self.log.critical(traceback.format_exc())
         finally:
             await self.stop()
