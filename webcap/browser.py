@@ -5,6 +5,7 @@ import atexit
 import orjson
 import shutil
 import asyncio
+import logging
 import tempfile
 import traceback
 import websockets
@@ -18,6 +19,8 @@ from webcap import defaults
 from webcap.base import WebCapBase
 from webcap.errors import DevToolsProtocolError, WebCapError
 from webcap.helpers import task_pool, repr_params  # , download_wap
+
+log = logging.getLogger("webcap.browser")
 
 
 class Browser(WebCapBase):
@@ -129,8 +132,10 @@ class Browser(WebCapBase):
         except Exception as e:
             self.log.error(f"Error visiting {url}: {e}")
         finally:
-            with suppress(Exception):
+            try:
                 await tab.close()
+            except BaseException as e:
+                log.debug(f"Error closing tab at {url}: {e} - {traceback.format_exc()}")
 
     async def new_tab(self, url):
         tab = Tab(self)
