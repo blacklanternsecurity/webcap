@@ -1,4 +1,5 @@
 import re
+import time
 import asyncio
 import logging
 import traceback
@@ -24,15 +25,19 @@ async def task_pool(fn, all_args, threads=10, global_kwargs=None):
             with suppress(IndexError):
                 arg = all_args.pop(0)
                 task = asyncio.create_task(fn(arg, **global_kwargs))
-                tasks[task] = arg
+                tasks[task] = (arg, time.time())
 
         for _ in range(threads):
             new_task()
 
         while tasks:
-            done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+            done, pending = await asyncio.wait(set(tasks.keys()), return_when=asyncio.FIRST_COMPLETED, timeout=1.0)
+
+            log.debug(f"{len(done):,} tasks done:")
             for task in done:
-                arg = tasks.pop(task)
+                arg, time_started = tasks.pop(task)
+                elapsed = time.time() - time_started
+                log.debug(f" - {arg} running for {elapsed:.1f} seconds")
                 try:
                     result = task.result()
                     yield arg, result
@@ -40,6 +45,14 @@ async def task_pool(fn, all_args, threads=10, global_kwargs=None):
                     log.error(f"Error in task {arg}: {e}")
                     log.debug(traceback.format_exc())
                 new_task()
+
+            if not done:
+                log.debug(f"{len(pending):,} tasks pending:")
+                for task in pending:
+                    arg, time_started = tasks[task]
+                    elapsed = elapsed = time.time() - time_started
+                    log.debug(f" - {arg} running for {elapsed:.1f} seconds")
+
     except (KeyboardInterrupt, asyncio.CancelledError):
         for task in tasks:
             task.cancel()
