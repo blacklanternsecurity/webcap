@@ -2,23 +2,26 @@ name: Tests
 on:
   push:
     branches:
-      - master
       - dev
   pull_request:
   workflow_call:
+    secrets:
+      CODECOV_TOKEN:
+        required: false
 
 permissions:
   contents: read
 
 concurrency:
-  group: tests-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  group: tests-${{ github.workflow_ref }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   python:
-    uses: blacklanternsecurity/CLA/.github/workflows/python-tests.yml@40c6e18c0a6e32116eea4f89fc826f53c70889dc # 2026-10-07
+    uses: blacklanternsecurity/CLA/.github/workflows/python-tests.yml@07e14bcbba5e737e1b29bd9e3f9128fbf2483be9 # CLA#11
     with:
       setup-script: scripts/ci-setup.sh
       pytest-args: -s -vv --disable-warnings --cov-report xml:cov.xml --cov=webcap .
       coverage: true
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

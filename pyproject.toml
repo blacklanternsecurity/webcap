@@ -1,6 +1,6 @@
 [project]
 name = "webcap"
-version = "0.1.103"
+version = "0.1.104"
 description = "An ultra-lightweight web screenshot tool written in Python"
 authors = [{name = "TheTechromancer"}]
 license = "GPL-3.0"
